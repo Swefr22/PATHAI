@@ -22,13 +22,24 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDeepScenarioTracking();
 });
 
+// Shuffle array using Fisher-Yates algorithm
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
 // Load scenarios from backend
 async function loadScenarios() {
     try {
         const response = await fetch(`${API_URL}/scenarios`);
         const data = await response.json();
-        scenarios = data.micro_scenarios;
-        console.log('Scenarios loaded:', scenarios.length);
+        // RANDOMIZE SCENARIOS HERE!
+        scenarios = shuffleArray(data.micro_scenarios);
+        console.log('Scenarios loaded and randomized:', scenarios.length);
     } catch (error) {
         console.error('Error loading scenarios:', error);
         // Fallback to embedded scenarios if API fails
@@ -175,6 +186,8 @@ function loadFallbackScenarios() {
             }
         }
     ];
+    // RANDOMIZE FALLBACK SCENARIOS TOO!
+    scenarios = shuffleArray(scenarios);
 }
 
 // Start the test
@@ -367,8 +380,76 @@ function displayResults(report) {
         companyList.appendChild(div);
     });
 
+    // Job Matches - NEW!
+    displayJobMatches(report.matched_jobs || []);
+
     // Store report for download
     window.currentReport = report;
+}
+
+// Display job matches
+function displayJobMatches(jobs) {
+    const jobMatchesContainer = document.getElementById('jobMatches');
+    jobMatchesContainer.innerHTML = '';
+
+    if (!jobs || jobs.length === 0) {
+        jobMatchesContainer.innerHTML = '<p style="color: #999;">No job matches available at the moment.</p>';
+        return;
+    }
+
+    jobs.forEach(job => {
+        const jobCard = document.createElement('div');
+        jobCard.className = 'job-card';
+        
+        jobCard.innerHTML = `
+            <div class="job-header">
+                <div>
+                    <div class="job-title">${job.title}</div>
+                    <div class="company-name">${job.company_name}</div>
+                </div>
+                <div class="match-badge">${job.match_score}% Match</div>
+            </div>
+            
+            <div class="job-details">
+                <div class="job-detail-item">
+                    <strong>📍 Location</strong>
+                    ${job.location}
+                </div>
+                <div class="job-detail-item">
+                    <strong>💰 Salary</strong>
+                    ${job.salary_range}
+                </div>
+                <div class="job-detail-item">
+                    <strong>💼 Experience</strong>
+                    ${job.experience}
+                </div>
+                <div class="job-detail-item">
+                    <strong>🏢 Industry</strong>
+                    ${job.company_industry}
+                </div>
+            </div>
+            
+            <div class="job-description">
+                ${job.description}
+            </div>
+            
+            <div class="job-fit-reason">
+                <strong>Why you're a great fit:</strong>
+                ${job.company_culture_fit}
+            </div>
+            
+            <button class="apply-btn" onclick="applyToJob('${job.id}', '${job.company_name}')">
+                Apply Now →
+            </button>
+        `;
+        
+        jobMatchesContainer.appendChild(jobCard);
+    });
+}
+
+// Apply to job
+function applyToJob(jobId, companyName) {
+    alert(`🎉 Great choice! In production, this would:\n\n1. Save your application\n2. Notify ${companyName}\n3. Send you application confirmation\n4. Track your application status\n\nFor demo: Application submitted successfully!`);
 }
 
 // Format key names

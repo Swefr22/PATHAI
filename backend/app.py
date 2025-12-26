@@ -1,11 +1,12 @@
 """
-PATHAI Backend - Flask API Server
+PATHAI Backend - Flask API Server with Job Matching
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 from datetime import datetime
+from jobs_database import get_jobs_by_archetype, get_all_jobs, get_job_stats, COMPANIES
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -325,14 +326,18 @@ class BehavioralProfiler:
         return top_archetype, ARCHETYPES[top_archetype]
     
     def generate_report(self, user_data):
-        """Generate complete profile report"""
+        """Generate complete profile report with job matches"""
         self.analyze_micro_decisions(user_data.get('micro_decisions', []))
         self.analyze_deep_scenario(user_data.get('deep_scenario', {}))
         
         archetype_key, archetype_details = self.determine_archetype()
         
+        # Get matching jobs
+        matched_jobs = get_jobs_by_archetype(archetype_key, limit=5)
+        
         report = {
             "archetype": archetype_details['name'],
+            "archetype_key": archetype_key,
             "description": archetype_details['description'],
             "top_careers": archetype_details['careers'][:3],
             "suitable_companies": archetype_details['companies'],
@@ -343,6 +348,7 @@ class BehavioralProfiler:
                 "value_priority": "Purpose-driven" if self.signals['value_hierarchy'] > 0 else "Pragmatic",
                 "adaptability": "Principled" if self.signals['consistency'] > 0 else "Flexible"
             },
+            "matched_jobs": matched_jobs,
             "signal_scores": self.signals,
             "timestamp": datetime.now().isoformat()
         }
@@ -391,6 +397,45 @@ def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy"})
 
+@app.route('/api/jobs', methods=['GET'])
+def get_jobs():
+    """Get all available jobs"""
+    archetype = request.args.get('archetype', None)
+    
+    if archetype:
+        jobs = get_jobs_by_archetype(archetype, limit=20)
+    else:
+        jobs = get_all_jobs()
+    
+    return jsonify({
+        "jobs": jobs,
+        "count": len(jobs)
+    })
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    """Get platform statistics"""
+    stats = get_job_stats()
+    
+    # Add impact metrics
+    stats['impact_metrics'] = {
+        "assessments_completed": 1247,  # Mock data for demo
+        "successful_placements": 342,
+        "avg_time_to_hire_days": 45,
+        "placement_rate": "27.4%",
+        "companies_partnered": len(COMPANIES)
+    }
+    
+    return jsonify(stats)
+
+@app.route('/api/companies', methods=['GET'])
+def get_companies():
+    """Get all companies"""
+    return jsonify({
+        "companies": COMPANIES,
+        "count": len(COMPANIES)
+    })
+
 
 if __name__ == '__main__':
     print("🚀 PATHAI Backend Server Starting...")
@@ -398,6 +443,9 @@ if __name__ == '__main__':
     print("📡 API Endpoints:")
     print("   - GET  /api/scenarios")
     print("   - POST /api/analyze")
+    print("   - GET  /api/jobs?archetype=<archetype>")
+    print("   - GET  /api/stats")
+    print("   - GET  /api/companies")
     print("\n✨ Ready to receive requests!\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
